@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Перекуп телефонов</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10131c;color:white;font-family:Arial;padding:14px}
+header{background:linear-gradient(120deg,#6545dc,#2479d9);padding:20px;border-radius:18px}
+h1{margin:0 0 10px;font-size:25px}
+.stats{display:flex;gap:8px;margin-top:15px}
+.stat{background:#ffffff20;padding:12px;border-radius:12px;flex:1;font-size:12px}
+.stat b{display:block;font-size:18px;margin-top:5px}
+h2{font-size:20px;margin-top:25px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.card{background:#1d2230;border:1px solid #30384b;padding:11px;border-radius:15px;min-width:0}
+.phone{height:155px;background:linear-gradient(145deg,#303d55,#111827);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;overflow:hidden}
+.back{width:72px;height:137px;border-radius:14px;position:relative;border:2px solid #aeb4bd;box-shadow:5px 6px 15px #0009}
+.back.vivo{background:linear-gradient(140deg,#dce4ed,#788ba5)}
+.back.xiaomi{background:linear-gradient(140deg,#b7b9c1,#555b68)}
+.back.iphone{background:linear-gradient(140deg,#d6c6b8,#82766e)}
+.back.samsung{background:linear-gradient(140deg,#b9cbd7,#607b92)}
+.back.poco{background:linear-gradient(140deg,#e2d9aa,#9d8b48)}
+.cameras{position:absolute;top:7px;left:7px;width:37px;height:42px;background:#30343d;border-radius:10px;padding:5px;display:grid;grid-template-columns:repeat(2,12px);gap:4px}
+.lens{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#9dc9ed,#101522 65%);border:1px solid #888}
+.logo{position:absolute;top:72%;width:100%;text-align:center;color:#4b515b;font-size:10px;font-weight:bold;letter-spacing:1px}
+.name{font-weight:bold;font-size:15px}
+.muted{color:#aab2c5;font-size:12px;margin:7px 0}
+.price{color:#5de6a1;font-size:17px;font-weight:bold}
+button{background:#6545dc;color:white;border:0;padding:11px;border-radius:10px;width:100%;font-weight:bold;margin-top:8px;font-size:13px}
+.sell{background:#168b64}
+nav{display:flex;gap:6px;margin-top:15px}
+nav button{background:#30384b}
+nav button.active{background:#6545dc}
+#message{background:#25334a;padding:12px;border-radius:12px;margin-top:15px;display:none}
+.item{background:#1d2230;padding:13px;border-radius:13px;margin-bottom:10px}
+footer{text-align:center;color:#737f94;margin:25px}
+</style>
+</head>
+<body>
+
+<header>
+<h1>📱 ПЕРЕКУП ТЕЛЕФОНОВ</h1>
+Покупай дешевле — продавай дороже!
+<div class="stats">
+<div class="stat">💰 Деньги<b id="money">50 000 ₽</b></div>
+<div class="stat">📦 Телефоны<b id="count">0</b></div>
+<div class="stat">⭐ Репутация<b id="rep">0</b></div>
+</div>
+</header>
+
+<nav>
+<button class="active" onclick="tab('market',this)">🛒 Рынок</button>
+<button onclick="tab('inventory',this)">📦 Склад</button>
+<button onclick="tab('stats',this)">📊 Статистика</button>
+</nav>
+
+<div id="message"></div>
+
+<section id="market">
+<h2>🔥 Объявления продавцов</h2>
+<div class="grid" id="offers"></div>
+<button onclick="refresh()">🔄 Обновить объявления (500 ₽)</button>
+</section>
+
+<section id="inventory" style="display:none">
+<h2>📦 Твой склад</h2>
+<div id="items"></div>
+</section>
+
+<section id="stats" style="display:none">
+<h2>📊 Твоя карьера</h2>
+<div class="card">
+<p>💰 Баланс: <b id="sMoney"></b></p>
+<p>📱 Куплено: <b id="bought">0</b></p>
+<p>💵 Продано: <b id="sold">0</b></p>
+<p>📈 Прибыль: <b id="profit">0 ₽</b></p>
+<p>⭐ Репутация: <b id="sRep">0</b></p>
+</div>
+</section>
+
+<footer>PHONE RESELLER SIMULATOR</footer>
+
+<script>
+let money=50000,reputation=0,inventory=[];
+let bought=0,sold=0,profit=0,nextId=1,offers=[];
+
+const models=[
+{name:"Vivo X200",base:65000,type:"vivo"},
+{name:"Vivo X300",base:85000,type:"vivo"},
+{name:"Xiaomi 17",base:70000,type:"xiaomi"},
+{name:"Xiaomi 17 Pro",base:90000,type:"xiaomi"},
+{name:"Samsung S25 Ultra",base:100000,type:"samsung"},
+{name:"iPhone 16 Pro",base:110000,type:"iphone"},
+{name:"iPhone 17 Pro",base:140000,type:"iphone"},
+{name:"POCO F7 Ultra",base:45000,type:"poco"},
+{name:"Redmi Note 15 Pro",base:30000,type:"xiaomi"}
+];
+
+const conditions=[
+{name:"Как новый",mult:1},
+{name:"Хорошее",mult:.88},
+{name:"Есть царапины",mult:.72},
+{name:"Требует ремонта",mult:.48}
+];
+
+function rub(n){return Math.round(n).toLocaleString("ru-RU")+" ₽"}
+
+function phoneHTML(type){
+return `<div class="phone">
+<div class="back ${type}">
+<div class="cameras">
+<div class="lens"></div><div class="lens"></div>
+<div class="lens"></div>
+</div>
+<div class="logo">${type.toUpperCase()}</div>
+</div></div>`;
+}
+
+function generate(){
+offers=[];
+for(let i=0;i<8;i++){
+let m=models[Math.floor(Math.random()*models.length)];
+let c=conditions[Math.floor(Math.random()*conditions.length)];
+let real=Math.round(m.base*c.mult);
+let price=Math.round(real*(.75+Math.random()*.4)/100)*100;
+offers.push({
+id:nextId++,name:m.name,type:m.type,
+condition:c.name,real,price,
+seller:["Артём","Максим","Денис","Илья","Алексей","Дима"][Math.floor(Math.random()*6)]
+});
+}
+render();
+}
+
+function render(){
+document.getElementById("money").textContent=rub(money);
+document.getElementById("count").textContent=inventory.length;
+document.getElementById("rep").textContent=reputation;
+document.getElementById("sMoney").textContent=rub(money);
+document.getElementById("sRep").textContent=reputation;
+document.getElementById("bought").textContent=bought;
+document.getElementById("sold").textContent=sold;
+document.getElementById("profit").textContent=rub(profit);
+
+document.getElementById("offers").innerHTML=offers.map(o=>`
+<div class="card">
+${phoneHTML(o.type)}
+<div class="name">${o.name}</div>
+<div class="muted">Продавец: ${o.seller}</div>
+<div class="muted">Состояние: ${o.condition}</div>
+<div class="price">${rub(o.price)}</div>
+<button onclick="buy(${o.id})">Купить</button>
+<button onclick="bargain(${o.id})">🤝 Торговаться</button>
+</div>`).join("");
+
+document.getElementById("items").innerHTML=
+inventory.length?inventory.map(p=>`
+<div class="item">
+${phoneHTML(p.type)}
+<div class="name">${p.name}</div>
+<p class="muted">Состояние: ${p.condition}</p>
+<p>Покупка: ${rub(p.cost)}</p>
+<p class="price">Оценка: ${rub(p.value)}</p>
+<button class="sell" onclick="sell(${p.id})">Продать телефон</button>
+</div>`).join(""):"<p>Склад пуст. Купи свой первый телефон!</p>";
+}
+
+function buy(id){
+let o=offers.find(x=>x.id===id);
+if(!o)return;
+if(money<o.price){msg("❌ Не хватает денег!");return}
+money-=o.price;
+inventory.push({
+id:nextId++,name:o.name,type:o.type,
+condition:o.condition,cost:o.price,value:o.real
+});
+profit-=o.price;
+bought++;
+offers=offers.filter(x=>x.id!==id);
+msg("✅ Ты купил "+o.name+"!");
+render();
+}
+
+function bargain(id){
+let o=offers.find(x=>x.id===id);
+if(!o)return;
+if(Math.random()>.35){
+let old=o.price;
+o.price=Math.round(o.price*(.88+Math.random()*.04)/100)*100;
+msg("🤝 Было "+rub(old)+", теперь "+rub(o.price));
+}else msg("😡 Продавец отказался торговаться!");
+render();
+}
+
+function sell(id){
+let p=inventory.find(x=>x.id===id);
+if(!p)return;
+let price=Math.round(p.value*(.95+Math.random()*.2)/100)*100;
+money+=price;
+profit+=price;
+sold++;
+if(Math.random()>.4)reputation++;
+inventory=inventory.filter(x=>x.id!==id);
+msg("💰 Продано за "+rub(price)+"!");
+render();
+}
+
+function refresh(){
+if(money<500){msg("Не хватает 500 ₽!");return}
+money-=500;
+generate();
+msg("🔄 Новые объявления!");
+}
+
+function msg(t){
+let el=document.getElementById("message");
+el.textContent=t;
+el.style.display="block";
+}
+
+function tab(name,btn){
+document.querySelectorAll("section").forEach(s=>s.style.display="none");
+document.getElementById(name).style.display="block";
+document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+btn.classList.add("active");
+}
+
+generate();
+</script>
+</body>
+</html>
